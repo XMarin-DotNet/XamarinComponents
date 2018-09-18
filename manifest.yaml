@@ -50,6 +50,10 @@
   BuildScript: ./Android/Blurring/build.cake
   TriggerPaths: [ Android/Blurring ]
   MacBuildTargets: [ samples, nuget, component ]
+- Name: Crashlytics
+  BuildScript: ./Android/Crashlytics/build.cake
+  TriggerPaths: [ Android/Crashlytics ]
+  MacBuildTargets: [ samples, nuget ]
 - Name: ShimmerLayout
   BuildScript: ./Android/ShimmerLayout/build.cake
   TriggerPaths: [ Android/ShimmerLayout ]
@@ -145,7 +149,7 @@
 - Name: SortableTableView
   BuildScript: ./Android/SortableTableView/build.cake
   TriggerPaths: [ Android/SortableTableView ]
-  MacBuildTargets: [ samples, component ]
+  MacBuildTargets: [ samples, nuget, component ]
 - Name: StickyHeader
   BuildScript: ./Android/StickyHeader/build.cake
   TriggerPaths: [ Android/StickyHeader ]
@@ -178,6 +182,24 @@
   BuildScript: ./Android/Wear/build.cake
   TriggerPaths: [ Android/Wear ]
   MacBuildTargets: [ samples, nuget ]
+- Name: GoogleLibPhoneNumber
+  BuildScript: ./Android/Google.LibPhoneNumber/build.cake
+  TriggerPaths: [ Android/Google.LibPhoneNumber ]
+  MacBuildTargets: [nuget]
+
+# will be XPlat in the future
+- Name: TensorFlow.Lite
+  BuildScript: ./XPlat/TensorFlow.Lite/build.cake
+  TriggerPaths: [ XPlat/TensorFlow.Lite ]
+  MacBuildTargets: [ libs, nuget]
+- Name: Protobuf.Lite
+  BuildScript: ./XPlat/Protobuf.Lite/build.cake
+  TriggerPaths: [ XPlat/Protobuf.Lite ]
+  MacBuildTargets: [ libs, nuget]
+- Name: Google.Grpc
+  BuildScript: ./XPlat/Google.Grpc/build.cake
+  TriggerPaths: [ XPlat/Google.Grpc ]
+  MacBuildTargets: [ libs, nuget]
 
 #######################################################
 # iOS
@@ -440,6 +462,10 @@
   BuildScript: ./XPlat/Mono.Options/build.cake
   TriggerPaths: [ XPlat/Mono.Options ]
   MacBuildTargets: [ component, samples ]
+- Name: Mono.ApiTools
+  BuildScript: ./XPlat/Mono.ApiTools/build.cake
+  TriggerPaths: [ XPlat/Mono.ApiTools ]
+  MacBuildTargets: [ samples, nuget ]
 - Name: EstimoteAndroid
   BuildScript: ./XPlat/Estimote/Android/build.cake
   TriggerPaths: [ XPlat/Estimote/Android ]
@@ -460,6 +486,14 @@
   BuildScript: ./XPlat/Shopify/iOS/build.cake
   TriggerPaths: [ XPlat/Shopify/iOS ]
   MacBuildTargets: [ samples, component ]
+- Name: StripeiOSBindings
+  BuildScript: ./XPlat/Stripe/bindings/iOS/build.cake
+  TriggerPaths: [ XPlat/Stripe/bindings/iOS ]
+  MacBuildTargets: [ samples, nuget ]
+- Name: StripeAndroidBindings
+  BuildScript: ./XPlat/Stripe/bindings/Android/build.cake
+  TriggerPaths: [ XPlat/Stripe/bindings/Android ]
+  MacBuildTargets: [ samples, nuget ]
 - Name: DropboxApiV2
   BuildScript: ./XPlat/DropboxApiV2/build.cake
   TriggerPaths: [ XPlat/DropboxApiV2 ]
