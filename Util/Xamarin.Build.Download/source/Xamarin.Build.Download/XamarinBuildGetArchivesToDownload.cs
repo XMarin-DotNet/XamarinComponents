@@ -18,6 +18,8 @@ namespace Xamarin.Build.Download
 
 		public string CacheDirectory { get; set; }
 
+		public bool AllowUnsecureUrls { get; set; }
+
 		DownloadUtils downloadUtils;
 
 		public override bool Execute ()
@@ -26,7 +28,7 @@ namespace Xamarin.Build.Download
 
 			downloadUtils = new DownloadUtils (this, CacheDirectory);
 
-			var items = downloadUtils.ParseDownloadItems (Archives);
+			var items = downloadUtils.ParseDownloadItems (Archives, AllowUnsecureUrls);
 
 			if (items != null) {
 				foreach (var item in items) {
@@ -37,14 +39,14 @@ namespace Xamarin.Build.Download
 					taskItem.SetMetadata ("Url", item.Url);
 					taskItem.SetMetadata ("CacheFile", item.CacheFile);
 
-					if (!string.IsNullOrEmpty (item.Sha1))
-						taskItem.SetMetadata ("Sha1", item.Sha1);
+					if (!string.IsNullOrEmpty (item.Sha256))
+						taskItem.SetMetadata ("Sha256", item.Sha256);
 
 					results.Add (taskItem);
 				}
 			}
 
-			var partials = downloadUtils.ParsePartialZipDownloadItems (PartialZipDownloads);
+			var partials = downloadUtils.ParsePartialZipDownloadItems (PartialZipDownloads, AllowUnsecureUrls);
 			if (partials != null) {
 				foreach (var partialZipDownload in partials) {
 					if (downloadUtils.IsAlreadyDownloaded (CacheDirectory, partialZipDownload))
@@ -55,8 +57,8 @@ namespace Xamarin.Build.Download
 					taskItem.SetMetadata ("RangeStart", partialZipDownload.RangeStart.ToString ());
 					taskItem.SetMetadata ("RangeEnd", partialZipDownload.RangeEnd.ToString ());
 
-					if (!string.IsNullOrEmpty (partialZipDownload.Md5))
-						taskItem.SetMetadata ("Md5", partialZipDownload.Md5);
+					if (!string.IsNullOrEmpty (partialZipDownload.Sha256))
+						taskItem.SetMetadata ("Sha256", partialZipDownload.Sha256);
 
 					results.Add (taskItem);
 				}

@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.Http.Formatting;
 using Microsoft.Build.Framework;
 
 namespace Xamarin.Build.Download
@@ -17,6 +16,12 @@ namespace Xamarin.Build.Download
 		public string DestinationBase { get; set; }
 
 		public string CacheDirectory { get; set; }
+
+		public bool AllowUnsecureUrls { get; set; }
+
+		public bool IsAndroid { get; set; }
+
+		public bool AndroidFixManifests { get; set; }
 
 		HttpClient http;
 
@@ -34,7 +39,7 @@ namespace Xamarin.Build.Download
 					var cacheDir = DownloadUtils.GetCacheDir (CacheDirectory);
 					var downloadUtils = new DownloadUtils (this, cacheDir);
 
-					parts = downloadUtils.ParsePartialZipDownloadItems (Parts);
+					parts = downloadUtils.ParsePartialZipDownloadItems (Parts, AllowUnsecureUrls);
 
 					await DownloadAll (cacheDir, parts).ConfigureAwait (false);
 
@@ -73,7 +78,7 @@ namespace Xamarin.Build.Download
 				try {
 					// Create a lock file based on the hash of the URL we are downloading from
 					// Since we could download a multipart request, we are locking on the url from any other process downloading from it
-					var lockFile = Path.Combine (cacheDirectory, DownloadUtils.HashMd5 (downloadUrl) + ".locked");
+					var lockFile = Path.Combine (cacheDirectory, DownloadUtils.Crc64 (downloadUrl) + ".locked");
 
 					using (var lockStream = DownloadUtils.ObtainExclusiveFileLock (lockFile, base.Token, TimeSpan.FromSeconds (30))) {
 
@@ -159,19 +164,23 @@ namespace Xamarin.Build.Download
 				await fs.FlushAsync ().ConfigureAwait (false);
 
 				fs.Seek (0, SeekOrigin.Begin);
-				fileHash = DownloadUtils.HashMd5 (fs);
+				fileHash = DownloadUtils.HashSha256 (fs);
 				LogDebugMessage ("Hash of Downloaded File: {0}", fileHash);
 
 				fs.Close ();
 			}
 
-			if (!string.IsNullOrEmpty (part.Md5) && !part.Md5.Equals (fileHash, StringComparison.InvariantCultureIgnoreCase)) {
+			if (!string.IsNullOrEmpty (part.Sha256) && !part.Sha256.Equals (fileHash, StringComparison.InvariantCultureIgnoreCase)) {
 
 				// TODO: HANDLE 
-				LogMessage ("File MD5 Hash was invalid, deleting file: {0}", part.ToFile);
+				LogMessage ("File SHA256 Hash was invalid, deleting file: {0}", part.ToFile);
 				File.Delete (outputPath);
 				return false;
 			}
+
+			// Run through our AAR fixups if it's android
+			if (IsAndroid)
+				AndroidAarFixups.FixupAar(outputPath, AndroidFixManifests, Log);
 
 			return true;
 		}

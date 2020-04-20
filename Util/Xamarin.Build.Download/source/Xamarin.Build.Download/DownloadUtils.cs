@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.Build.Framework;
@@ -21,7 +22,7 @@ namespace Xamarin.Build.Download
 		public ILogger Log { get; private set; }
 		public string CacheDir { get; private set; }
 
-		public IEnumerable<XamarinBuildDownload> ParseDownloadItems (ITaskItem[] items)
+		public IEnumerable<XamarinBuildDownload> ParseDownloadItems (ITaskItem[] items, bool allowUnsecureUrls)
 		{
 			if (items == null || items.Length <= 0)
 				return new List<XamarinBuildDownload> ();
@@ -41,10 +42,13 @@ namespace Xamarin.Build.Download
 					Log.LogCodedError (ErrorCodes.XbdInvalidUrl, "Missing required Url metadata on item {0}", item.ItemSpec);
 					continue;
 				}
-				xbd.Sha1 = item.GetMetadata ("Sha1");
+				xbd.Sha256 = item.GetMetadata ("Sha256");
 				xbd.Kind = GetKind (xbd.Url, item.GetMetadata ("Kind"));
 				if (xbd.Kind == ArchiveKind.Unknown) {
 					//TODO we may be able to determine the kind from the server response
+					continue;
+				}
+				if (!EnsureSecureUrl (item, xbd.Url, allowUnsecureUrls)) {
 					continue;
 				}
 
@@ -63,7 +67,7 @@ namespace Xamarin.Build.Download
 						cacheFileExt = Path.GetExtension (xbd.ToFile)?.ToLower () ?? string.Empty;
 				}
 
-				xbd.CacheFile = Path.Combine (CacheDir, item.ItemSpec + "." + cacheFileExt);
+				xbd.CacheFile = Path.Combine (CacheDir, item.ItemSpec.TrimEnd('.') + "." + cacheFileExt.TrimStart('.'));
 				xbd.DestinationDir = Path.GetFullPath (Path.Combine (CacheDir, item.ItemSpec));
 
 				int lockTimeout = 60;
@@ -77,7 +81,7 @@ namespace Xamarin.Build.Download
 			return results.GroupBy (item => item.Id).Select ((kvp) => kvp.FirstOrDefault ()).ToArray ();
 		}
 
-		public List<PartialZipDownload> ParsePartialZipDownloadItems (ITaskItem [] items)
+		public List<PartialZipDownload> ParsePartialZipDownloadItems (ITaskItem [] items, bool allowUnsecureUrls)
 		{
 			if (items == null || items.Length <= 0)
 				return new List<PartialZipDownload> ();
@@ -102,8 +106,11 @@ namespace Xamarin.Build.Download
 					Log.LogCodedError (ErrorCodes.XbdInvalidUrl, "Missing required Url metadata on item {0}", id);
 					continue;
 				}
+				if (!EnsureSecureUrl (part, url, allowUnsecureUrls)) {
+					continue;
+				}
 
-				var md5 = part.GetMetadata ("Md5");
+				var sha256 = part.GetMetadata ("Sha256");
 
 				long rangeStart = -1L;
 				long.TryParse (part.GetMetadata ("RangeStart"), out rangeStart);
@@ -131,7 +138,7 @@ namespace Xamarin.Build.Download
 					Id = id,
 					ToFile = toFile,
 					Url = url,
-					Md5 = md5,
+					Sha256 = sha256,
 					RangeStart = rangeStart,
 					RangeEnd = rangeEnd,
 					CustomErrorMessage = customErrorMsg,
@@ -143,6 +150,18 @@ namespace Xamarin.Build.Download
 			var uniqueParts = result.GroupBy (p => p.Id).Select (kvp => kvp.FirstOrDefault ());
 
 			return uniqueParts.ToList ();
+		}
+
+		public bool EnsureSecureUrl (ITaskItem item, string url, bool allowUnsecureUrls)
+		{
+			if (!allowUnsecureUrls) {
+				if (url.StartsWith ("http:", StringComparison.OrdinalIgnoreCase)) {
+					Log.LogCodedError (ErrorCodes.XbdUnsecureUrl, "Unsecure download url '{0}' not allowed, unless 'XamarinBuildDownloadAllowUnsecure' is set to 'true' for the project, for {1}", url, item.ItemSpec);
+					return false;
+				}
+			}
+
+			return true;
 		}
 
 		public static string GetCacheDir (string overrideCacheDir = null)
@@ -237,7 +256,7 @@ namespace Xamarin.Build.Download
 		{
 			var linkedCancelTokenSource = CancellationTokenSource.CreateLinkedTokenSource (
 				cancelToken,
-				 new CancellationTokenSource (timeout).Token);
+				new CancellationTokenSource (timeout).Token);
 			
 			while (!linkedCancelTokenSource.IsCancellationRequested) {
 				try {
@@ -253,30 +272,64 @@ namespace Xamarin.Build.Download
 			return null;
 		}
 
-		public static string HashSha1 (string value)
+		public static string Crc64(string s)
 		{
-			using (HashAlgorithm hashAlg = new SHA1Managed ()) {
-				var hash = hashAlg.ComputeHash (System.Text.Encoding.ASCII.GetBytes (value));
-				return BitConverter.ToString (hash).Replace ("-", string.Empty);
+			var bytes = Encoding.UTF8.GetBytes(s);
+			return HashBytes(bytes);
+		}
+
+		public static string HashBytes(byte[] bytes)
+		{
+			using (var hashAlg = new Crc64())
+			{
+				byte[] hash = hashAlg.ComputeHash(bytes);
+				return ToHexString(hash);
 			}
 		}
 
-		public static string HashMd5 (string value)
+		public static string ToHexString(byte[] hash)
 		{
-			return HashMd5 (System.Text.Encoding.Default.GetBytes (value));
+			char[] array = new char[hash.Length * 2];
+			for (int i = 0, j = 0; i < hash.Length; i += 1, j += 2)
+			{
+				byte b = hash[i];
+				array[j] = GetHexValue(b / 16);
+				array[j + 1] = GetHexValue(b % 16);
+			}
+			return new string(array);
 		}
 
-		public static string HashMd5 (byte[] value)
+		static char GetHexValue(int i) => (char)(i < 10 ? i + 48 : i - 10 + 65);
+
+		public static string HashSha256 (string value)
 		{
-			using (var md5 = MD5.Create ())
-				return BitConverter.ToString (md5.ComputeHash (value)).Replace ("-", "").ToLowerInvariant ();
+			return HashSha256 (Encoding.UTF8.GetBytes (value));
 		}
 
-		public static string HashMd5 (Stream value)
+		public static string HashSha256 (byte[] value)
 		{
-			using (var md5 = MD5.Create ())
-				return BitConverter.ToString (md5.ComputeHash (value)).Replace ("-", "").ToLowerInvariant ();
+			using (var sha256 = new SHA256Managed())
+			{
+				var hash = new StringBuilder();
+				var hashData = sha256.ComputeHash(value);
+				foreach (var b in hashData)
+					hash.Append(b.ToString("x2"));
+
+				return hash.ToString();
+			}
 		}
 
+		public static string HashSha256 (Stream value)
+		{
+			using (var sha256 = new SHA256Managed())
+			{
+				var hash = new StringBuilder();
+				var hashData = sha256.ComputeHash(value);
+				foreach (var b in hashData)
+					hash.Append(b.ToString("x2"));
+
+				return hash.ToString();
+			}
+		}
 	}
 }

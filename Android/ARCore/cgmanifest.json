@@ -1,0 +1,16 @@
+{
+  "Registrations": [
+    {
+      "Component": {
+        "Type": "Maven",
+        "Maven": {
+          "ArtifactId": "core",
+          "GroupId": "com.google.ar",
+          "Version": "1.16.0",
+          "NuGetId": "Xamarin.Google.ARCore"
+        }
+      }
+    }
+  ],
+  "Version": 1
+}

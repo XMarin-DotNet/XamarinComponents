@@ -1,9 +1,9 @@
-#addin "nuget:?package=Cake.Http&version=0.5.0"
-#addin "nuget:?package=Cake.Json&version=3.0.1"
-#addin "nuget:?package=Newtonsoft.Json&version=9.0.1"
-#addin "nuget:?package=Cake.Xamarin&version=3.0.0"
-#addin "nuget:?package=Cake.ExtendedNuGet&version=1.0.0.27"
-#addin "nuget:?package=NuGet.Core&version=2.14.0"
+#addin "nuget:?package=Cake.Http&version=0.6.1"
+#addin "nuget:?package=Cake.Json&version=4.0.0"
+//#addin "nuget:?package=Newtonsoft.Json&version=9.0.1"
+#addin "nuget:?package=Cake.Xamarin&version=3.0.1"
+#addin "nuget:?package=Cake.ExtendedNuGet&version=2.1.0"
+#addin "nuget:?package=Xamarin.Nuget.Validator&version=1.1.1"
 
 var DEFAULT_SIGNTOOL_PATH = IsRunningOnWindows ()
 	? "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\x64\\signtool.exe"
@@ -134,7 +134,8 @@ Task ("DownloadArtifacts")
 
 Task ("VerifyNuGets")
 	.IsDependentOn ("VerifyAuthenticode")
-	.IsDependentOn ("VerifyNuGetSigning");
+	.IsDependentOn ("VerifyNuGetSigning")
+	.IsDependentOn ("VerifyNugetMetaData");
 
 Task ("VerifyNuGetSigning")
 	.IsDependentOn ("DownloadArtifacts")
@@ -159,6 +160,45 @@ Task ("VerifyNuGetSigning")
 
 			if (result != 0)
 				throw new Exception ($"Invalid Signature {nupkgFile.GetFilename ()}");
+		}
+	}
+});
+
+Task ("VerifyNugetMetaData")
+	.IsDependentOn ("DownloadArtifacts")
+	.Does (() => 
+{
+	var options = new Xamarin.Nuget.Validator.NugetValidatorOptions()
+	{
+		Copyright = "© Microsoft Corporation. All rights reserved.",
+		Author = "Microsoft",
+		Owner = "Microsoft",
+		NeedsProjectUrl = true,
+		NeedsLicenseUrl = true,
+		ValidateRequireLicenseAcceptance = true,
+		ValidPackageNamespace = new [] { "Xamarin", "Mono", "SkiaSharp", "HarfBuzzSharp", "mdoc", "UrhoSharp", "Masonry", "GoogleGson" },
+	};
+
+	foreach (var globPattern in GLOB_PATTERNS) {
+		var nupkgFiles = GetFiles (globPattern);
+
+		foreach (var nupkgFile in nupkgFiles) {
+			Information ("Verifiying Metadata of {0}", nupkgFile.GetFilename ());
+
+			var result = Xamarin.Nuget.Validator.NugetValidator.Validate(MakeAbsolute(nupkgFile).FullPath, options);
+
+			if (!result.Success)
+			{
+				Information ("Metadata validation failed for: {0} \n\n", nupkgFile.GetFilename ());
+				Information (string.Join("\n    ", result.ErrorMessages));
+				throw new Exception ($"Invalid Metadata for: {nupkgFile.GetFilename ()}");
+
+			}
+			else
+			{
+				Information ("Metadata validation passed for: {0}", nupkgFile.GetFilename ());
+			}
+			
 		}
 	}
 });
