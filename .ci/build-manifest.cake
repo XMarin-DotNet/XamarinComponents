@@ -1,4 +1,4 @@
-#addin nuget:?package=Cake.XCode&version=4.1.0
+#addin nuget:?package=Cake.XCode&version=4.2.0
 #addin nuget:?package=Cake.Yaml&version=3.1.0&loadDependencies=true
 #addin nuget:?package=Cake.Json&version=4.0.0&loadDependencies=true
 #addin nuget:?package=Xamarin.Nuget.Validator&version=1.1.1
@@ -6,6 +6,7 @@
 
 
 using Xamarin.Nuget.Validator;
+using System.Runtime.InteropServices;
 
 
 // SECTION: Arguments and Settings
@@ -120,7 +121,8 @@ if (FORCE_BUILD) {
 	var matchedFiles = new Dictionary<BuildGroup, FilePathCollection> ();
 	foreach (var buildGroup in BUILD_GROUPS) {
 		// If ignore triggers for the platform this is running on, do not add the group even if the trigger is matched
-		if ((buildGroup.IgnoreTriggersOnMac && IsRunningOnMac ()) ||
+		if ((buildGroup.IgnoreTriggersOnLinux && IsRunningOnLinux ()) ||
+			(buildGroup.IgnoreTriggersOnMac && IsRunningOnMacOs ()) ||
 			(buildGroup.IgnoreTriggersOnWindows && IsRunningOnWindows ()))
 			continue;
 
@@ -169,6 +171,8 @@ if (FORCE_BUILD) {
 			platforms.Add ("windows");
 		if (match.Key.BuildOnMac)
 			platforms.Add ("mac");
+		if (match.Key.BuildOnLinux)
+			platforms.Add ("linux");
 		Information ($" - {{0}} ({string.Join (" and ", platforms)})", match.Key);
 		Information ("    - " + string.Join (Environment.NewLine + "    - ", match.Value));
 	}
@@ -198,7 +202,7 @@ if (BUILD_NAMES.Length > 0) {
 
 // Remove the builds that cannot run on this platform
 groupsToBuild = groupsToBuild
-	.Where (bg => (bg.BuildOnWindows && IsRunningOnWindows ()) || (bg.BuildOnMac && IsRunningOnMac ()))
+	.Where (bg => (bg.BuildOnWindows && IsRunningOnWindows ()) || (bg.BuildOnMac && IsRunningOnMacOs ()) || (bg.BuildOnLinux && IsRunningOnLinux ()))
 	.ToList ();
 if (groupsToBuild.Count > 0) {
 	Information ("Removed the items that cannot build on this platform, leaving:" + Environment.NewLine +
@@ -219,7 +223,7 @@ if (groupsToBuild.Count == 0) {
 	// Make a note if nothing changed...
 	Warning ("No changed files affected any of the paths from the manifest.yaml.");
 } else {
-	if (IsRunningOnMac ()) {
+	if (IsRunningOnMacOs ()) {
 		// Make sure cocoapods are up to date if needed
 		if (podRepoUpdate != PodRepoUpdate.NotRequired) {
 			if (podRepoUpdate == PodRepoUpdate.Forced)
@@ -264,8 +268,10 @@ if (groupsToBuild.Count == 0) {
 			targets = BUILD_TARGETS.ToList ();
 		else if (IsRunningOnWindows ())
 			targets = buildGroup.WindowsBuildTargets.ToList ();
-		else if (IsRunningOnMac ())
+		else if (IsRunningOnMacOs ())
 			targets = buildGroup.MacBuildTargets.ToList ();
+		else if (IsRunningOnLinux ())
+			targets = buildGroup.LinuxBuildTargets.ToList ();
 		else
 			throw new Exception ("Unable to determine the target to build.");
 
@@ -399,18 +405,50 @@ public class BuildGroup {
 	public List<DirectoryPath> TriggerPaths { get; set; } = new List<DirectoryPath> ();
 	public List<FilePath> TriggerFiles { get; set; } = new List<FilePath> ();
 	public bool IgnoreTriggersOnMac { get; set; } = false;
+	public bool IgnoreTriggersOnLinux { get; set; } = false;
 	public bool IgnoreTriggersOnWindows { get; set; } = false;
 	public List<string> WindowsBuildTargets { get; set; } = new List<string> ();
 	public List<string> MacBuildTargets { get; set; } = new List<string> ();
+	public List<string> LinuxBuildTargets { get; set; } = new List<string> ();
 
 	public bool BuildOnWindows => WindowsBuildTargets?.Any () == true;
 	public bool BuildOnMac => MacBuildTargets?.Any () == true;
+	public bool BuildOnLinux => LinuxBuildTargets?.Any () == true;
 
 	public override string ToString () => Name;
 }
 
-bool IsRunningOnMac () {
-	return !IsRunningOnWindows ();
+bool IsRunningOnMacOs () {
+	return System.Environment.OSVersion.Platform == PlatformID.MacOSX || MacPlatformDetector.IsMac.Value;
+}
+
+bool IsRunningOnLinux () {
+	return IsRunningOnUnix () && !IsRunningOnMacOs ();
+}
+
+internal static class MacPlatformDetector {
+	internal static readonly Lazy<bool> IsMac = new Lazy<bool> (IsRunningOnMac);
+
+	[DllImport ("libc")]
+	static extern int uname (IntPtr buf);
+
+	static bool IsRunningOnMac () {
+		IntPtr buf = IntPtr.Zero;
+		try {
+			buf = Marshal.AllocHGlobal (8192);
+			// This is a hacktastic way of getting sysname from uname()
+			if (uname (buf) == 0) {
+				string os = Marshal.PtrToStringAnsi (buf);
+				if (os == "Darwin")
+					return true;
+			}
+		} catch {
+		} finally {
+			if (buf != IntPtr.Zero)
+				Marshal.FreeHGlobal (buf);
+		}
+		return false;
+	}
 }
 
 string[] GetGitOutput (string args) {

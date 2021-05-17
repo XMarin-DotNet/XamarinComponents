@@ -12,9 +12,6 @@ var ROOT_OUTPUT_DIR = ROOT_DIR.Combine ("output");
 var PACKAGE_NAMESPACES = Argument ("n", Argument ("namespaces", ""))
 	.Split (new [] { ",", ";" }, StringSplitOptions.RemoveEmptyEntries)
 	.ToList ();
-PACKAGE_NAMESPACES.AddRange (new [] {
-	"Xamarin",
-});
 
 
 // SECTION: Main Script
@@ -32,7 +29,7 @@ Information ("");
 var options = new NugetValidatorOptions {
 	Copyright = "© Microsoft Corporation. All rights reserved.",
 	Author = "Microsoft",
-	Owner = "Microsoft",
+	Owner = "", // Was "Microsoft", but this is no longer supported in nuspec: https://docs.microsoft.com/en-us/nuget/reference/msbuild-targets#pack-target
 	NeedsProjectUrl = true,
 	NeedsLicenseUrl = true,
 	ValidateRequireLicenseAcceptance = true,

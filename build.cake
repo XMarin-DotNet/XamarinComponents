@@ -2,14 +2,14 @@ var VERBOSITY = Argument ("v", Argument ("verbosity", Verbosity.Normal));
 var CONFIGURATION = Argument ("c", Argument ("configuration", "Release"));
 
 var BUILD_NAMES = Argument ("names", Argument ("name", ""));
-var BUILD_TARGETS = Argument ("build-targets", Argument ("targets", Argument ("target", "Default")));
+var BUILD_TARGETS = Argument ("build-targets", Argument ("targets", Argument ("target", "ci")));
 
 var FORCE_BUILD = Argument ("force", Argument ("forcebuild", Argument ("force-build", false)));
 var POD_REPO_UPDATE = Argument ("repo-update", Argument ("pod-repo-update", false));
 
 var ROOT_DIR = MakeAbsolute((DirectoryPath)".");
 
-var COPY_OUTPUT_TO_ROOT = Argument ("copyoutputtoroot", false);
+var COPY_OUTPUT_TO_ROOT = Argument ("copyoutputtoroot", true);
 var ROOT_OUTPUT_DIR = ROOT_DIR.Combine ("output");
 
 if (string.IsNullOrEmpty (BUILD_NAMES))

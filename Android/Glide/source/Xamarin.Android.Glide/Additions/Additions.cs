@@ -41,6 +41,8 @@ namespace Bumptech.Glide
         public virtual RequestBuilder EncodeFormat(Bitmap.CompressFormat format) => (RequestBuilder)EncodeFormat_T(format);
 
         public virtual RequestBuilder EncodeQuality(int quality) => (RequestBuilder)EncodeQuality_T(quality);
+	    
+        public virtual RequestBuilder Error(Drawable drawable) => (RequestBuilder)Error_T(drawable);
 
         public virtual RequestBuilder Error(int resourceId) => (RequestBuilder)Error_T(resourceId);
 
@@ -250,6 +252,40 @@ namespace Bumptech.Glide.Load.Model
     }
 }
 
+namespace Bumptech.Glide.Load.Model.Stream
+{
+    partial class QMediaStoreUriLoader
+    {
+        public bool Handles(Java.Lang.Object uri)
+            => Handles((Uri)uri);
+
+        public ModelLoaderLoadData BuildLoadData(Object uri, int width, int height, Options options)
+            => BuildLoadData((Uri)uri, width, height, options);
+    }
+}
+
+
+namespace Bumptech.Glide.Load.Resource
+{
+    partial class ImageDecoderResourceDecoder
+    {
+        public IResource Decode(Object source, int requestedWidth, int requestedHeight, Options options)
+            => Decode((ImageDecoder.Source)source, requestedWidth, requestedHeight, options);
+
+        public bool Handles(Object source, Options options)
+            => Handles((ImageDecoder.Source)source, options);
+    }
+}
+
+namespace Bumptech.Glide.Load.Resource.Gif
+{
+    public partial class GifDrawableEncoder
+	{
+        public virtual unsafe bool Encode(Object data, global::Java.IO.File file, global::Bumptech.Glide.Load.Options options)
+            => Encode((IResource)data, file, options);
+    }
+}
+
 namespace Bumptech.Glide.Load.Resource.Bitmap
 {
 	public partial class BitmapDrawableEncoder
@@ -305,6 +341,8 @@ namespace Bumptech.Glide.Request
         public virtual RequestOptions EncodeFormat(Bitmap.CompressFormat format) => (RequestOptions)EncodeFormat_T(format);
 
         public virtual RequestOptions EncodeQuality(int quality) => (RequestOptions)EncodeQuality_T(quality);
+	    
+        public virtual RequestBuilder Error(Drawable drawable) => (RequestBuilder)Error_T(drawable);
 
         public virtual RequestOptions Error(int resourceId) => (RequestOptions)Error_T(resourceId);
 
